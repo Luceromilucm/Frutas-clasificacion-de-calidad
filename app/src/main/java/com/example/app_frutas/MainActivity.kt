@@ -204,21 +204,58 @@ class MainActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    // Crops the central area matching the visual scanner box on screen
-    private fun recortarRecuadro(bitmap: Bitmap): Bitmap {
-        val minDim = minOf(bitmap.width, bitmap.height)
-        val cropSize = (minDim * 0.82f).toInt()
-        val cropX = (bitmap.width - cropSize) / 2
-        val cropY = (bitmap.height - cropSize) / 2
-        return Bitmap.createBitmap(bitmap, cropX, cropY, cropSize, cropSize)
+    // Exact crop matching what the user sees inside viewScannerFrame on the screen preview
+    private fun recortarDesdeVista(bitmap: Bitmap): Bitmap {
+        if (viewScannerFrame.width == 0 || viewScannerFrame.height == 0 || vista.width == 0 || vista.height == 0) {
+            return bitmap
+        }
+        val scaleX = bitmap.width.toFloat() / vista.width.toFloat()
+        val scaleY = bitmap.height.toFloat() / vista.height.toFloat()
+
+        val cropX = (viewScannerFrame.x * scaleX).toInt().coerceIn(0, bitmap.width - 1)
+        val cropY = (viewScannerFrame.y * scaleY).toInt().coerceIn(0, bitmap.height - 1)
+        val cropW = (viewScannerFrame.width * scaleX).toInt().coerceIn(1, bitmap.width - cropX)
+        val cropH = (viewScannerFrame.height * scaleY).toInt().coerceIn(1, bitmap.height - cropY)
+
+        return Bitmap.createBitmap(bitmap, cropX, cropY, cropW, cropH)
+    }
+
+    // Maps the visual screen box coordinates onto the camera sensor frame for live analysis
+    private fun recortarSensorAlRecuadro(fotoRotada: Bitmap): Bitmap {
+        if (viewScannerFrame.width == 0 || viewScannerFrame.height == 0 || vista.width == 0 || vista.height == 0) {
+            val minDim = minOf(fotoRotada.width, fotoRotada.height)
+            val s = (minDim * 0.80f).toInt()
+            return Bitmap.createBitmap(fotoRotada, (fotoRotada.width - s) / 2, (fotoRotada.height - s) / 2, s, s)
+        }
+
+        val scale = maxOf(
+            vista.width.toFloat() / fotoRotada.width.toFloat(),
+            vista.height.toFloat() / fotoRotada.height.toFloat()
+        )
+
+        val displayedW = fotoRotada.width * scale
+        val displayedH = fotoRotada.height * scale
+        val offsetX = (displayedW - vista.width) / 2f
+        val offsetY = (displayedH - vista.height) / 2f
+
+        val rawX = ((viewScannerFrame.x + offsetX) / scale).toInt().coerceIn(0, fotoRotada.width - 1)
+        val rawY = ((viewScannerFrame.y + offsetY) / scale).toInt().coerceIn(0, fotoRotada.height - 1)
+        val rawW = (viewScannerFrame.width / scale).toInt().coerceIn(1, fotoRotada.width - rawX)
+        val rawH = (viewScannerFrame.height / scale).toInt().coerceIn(1, fotoRotada.height - rawY)
+
+        val side = minOf(rawW, rawH)
+        val adjustedX = (rawX + (rawW - side) / 2).coerceIn(0, fotoRotada.width - side)
+        val adjustedY = (rawY + (rawH - side) / 2).coerceIn(0, fotoRotada.height - side)
+
+        return Bitmap.createBitmap(fotoRotada, adjustedX, adjustedY, side, side)
     }
 
     private fun analizarFrameEnVivo(img: ImageProxy) {
         val fotoRotada = img.toBitmap().rotar(img.imageInfo.rotationDegrees)
         img.close()
 
-        // Recorte exacto al recuadro para que la fruta ocupe todo el espacio de inferencia
-        val fotoRecortada = recortarRecuadro(fotoRotada)
+        // Recorte exacto a las coordenadas del recuadro visible en pantalla
+        val fotoRecortada = recortarSensorAlRecuadro(fotoRotada)
 
         val t0 = System.currentTimeMillis()
         val p = clasificador.clasificar(fotoRecortada)
@@ -231,11 +268,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Capture the current frame as a static snapshot, cropped to the reticle
+    // Capture the current frame as a static snapshot, exactly cropped to the reticle
     private fun capturarFotoActual() {
         val bitmap = vista.bitmap
         if (bitmap != null) {
-            val fotoRecortada = recortarRecuadro(bitmap)
+            val fotoRecortada = recortarDesdeVista(bitmap)
             cambiarAModoEstatico(fotoRecortada, "Foto Capturada")
         } else {
             Toast.makeText(this, "Cámara no lista aún", Toast.LENGTH_SHORT).show()
