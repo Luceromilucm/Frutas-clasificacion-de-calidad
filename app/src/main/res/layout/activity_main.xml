@@ -128,17 +128,17 @@
             android:contentDescription="Linterna" />
     </LinearLayout>
 
-    <!-- Center Scanner Viewfinder Box -->
+    <!-- Center Scanner Viewfinder Box (Enlarged for comfortable live framing) -->
     <View
         android:id="@+id/viewScannerFrame"
-        android:layout_width="240dp"
-        android:layout_height="240dp"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
         android:background="@drawable/bg_scanner_reticle"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/layoutActionControls"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.5" />
+        app:layout_constraintVertical_bias="0.45" />
 
     <!-- Scanner Tip Badge -->
     <TextView

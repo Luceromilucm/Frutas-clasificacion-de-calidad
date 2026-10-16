@@ -207,7 +207,7 @@ class MainActivity : AppCompatActivity() {
     // Crops the central area matching the visual scanner box on screen
     private fun recortarRecuadro(bitmap: Bitmap): Bitmap {
         val minDim = minOf(bitmap.width, bitmap.height)
-        val cropSize = (minDim * 0.65f).toInt()
+        val cropSize = (minDim * 0.82f).toInt()
         val cropX = (bitmap.width - cropSize) / 2
         val cropY = (bitmap.height - cropSize) / 2
         return Bitmap.createBitmap(bitmap, cropX, cropY, cropSize, cropSize)
