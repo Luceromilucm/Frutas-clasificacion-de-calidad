@@ -3,7 +3,6 @@ package com.example.app_frutas
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.graphics.Matrix
 import android.net.Uri
@@ -29,6 +28,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.exifinterface.media.ExifInterface
+import com.google.android.material.card.MaterialCardView
 import java.io.InputStream
 import java.util.concurrent.Executors
 
@@ -38,7 +38,12 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var clasificador: Clasificador
     private lateinit var vista: PreviewView
+
+    // Static Preview Elements (Framed card, no full-screen stretching)
+    private lateinit var viewDimOverlay: View
+    private lateinit var cardStaticPreview: MaterialCardView
     private lateinit var ivStaticPreview: ImageView
+    private lateinit var tvStaticBadge: TextView
 
     // UI Elements - Header & Scanner
     private lateinit var btnFlash: ImageButton
@@ -115,7 +120,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun initViews() {
         vista = findViewById(R.id.vista)
+        viewDimOverlay = findViewById(R.id.viewDimOverlay)
+        cardStaticPreview = findViewById(R.id.cardStaticPreview)
         ivStaticPreview = findViewById(R.id.ivStaticPreview)
+        tvStaticBadge = findViewById(R.id.tvStaticBadge)
+
         btnFlash = findViewById(R.id.btnFlash)
         tvModeBadge = findViewById(R.id.tvModeBadge)
         viewScannerFrame = findViewById(R.id.viewScannerFrame)
@@ -195,12 +204,24 @@ class MainActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    // Crops the central area matching the visual scanner box on screen
+    private fun recortarRecuadro(bitmap: Bitmap): Bitmap {
+        val minDim = minOf(bitmap.width, bitmap.height)
+        val cropSize = (minDim * 0.65f).toInt()
+        val cropX = (bitmap.width - cropSize) / 2
+        val cropY = (bitmap.height - cropSize) / 2
+        return Bitmap.createBitmap(bitmap, cropX, cropY, cropSize, cropSize)
+    }
+
     private fun analizarFrameEnVivo(img: ImageProxy) {
-        val foto = img.toBitmap().rotar(img.imageInfo.rotationDegrees)
+        val fotoRotada = img.toBitmap().rotar(img.imageInfo.rotationDegrees)
         img.close()
 
+        // Recorte exacto al recuadro para que la fruta ocupe todo el espacio de inferencia
+        val fotoRecortada = recortarRecuadro(fotoRotada)
+
         val t0 = System.currentTimeMillis()
-        val p = clasificador.clasificar(foto)
+        val p = clasificador.clasificar(fotoRecortada)
         val ms = System.currentTimeMillis() - t0
 
         runOnUiThread {
@@ -210,11 +231,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Capture the current frame as a static snapshot
+    // Capture the current frame as a static snapshot, cropped to the reticle
     private fun capturarFotoActual() {
         val bitmap = vista.bitmap
         if (bitmap != null) {
-            cambiarAModoEstatico(bitmap, "Foto Capturada")
+            val fotoRecortada = recortarRecuadro(bitmap)
+            cambiarAModoEstatico(fotoRecortada, "Foto Capturada")
         } else {
             Toast.makeText(this, "Cámara no lista aún", Toast.LENGTH_SHORT).show()
         }
@@ -271,9 +293,12 @@ class MainActivity : AppCompatActivity() {
     private fun cambiarAModoEstatico(bitmap: Bitmap, origen: String) {
         currentMode = AppMode.STATIC
 
-        // UI transitions
+        // Elegant framed presentation: dim live preview and show centered card
         ivStaticPreview.setImageBitmap(bitmap)
-        ivStaticPreview.visibility = View.VISIBLE
+        viewDimOverlay.visibility = View.VISIBLE
+        cardStaticPreview.visibility = View.VISIBLE
+        tvStaticBadge.text = origen.uppercase()
+
         viewScannerFrame.visibility = View.GONE
         tvScannerTip.visibility = View.GONE
 
@@ -305,7 +330,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         currentMode = AppMode.LIVE
-        ivStaticPreview.visibility = View.GONE
+
+        // Hide static card and dim overlay, restore reticle
+        viewDimOverlay.visibility = View.GONE
+        cardStaticPreview.visibility = View.GONE
+
         viewScannerFrame.visibility = View.VISIBLE
         tvScannerTip.visibility = View.VISIBLE
 

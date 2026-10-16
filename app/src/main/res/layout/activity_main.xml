@@ -19,18 +19,57 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Static Image Preview (Shown when a photo is taken or picked from gallery) -->
-    <ImageView
-        android:id="@+id/ivStaticPreview"
+    <!-- Dimming overlay when viewing static photo -->
+    <View
+        android:id="@+id/viewDimOverlay"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:scaleType="centerCrop"
+        android:background="#D9000000"
         android:visibility="gone"
-        android:contentDescription="Foto analizada"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Centered Card for Static Image Preview (Clean, framed, no screen stretching) -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardStaticPreview"
+        android:layout_width="260dp"
+        android:layout_height="260dp"
+        android:visibility="gone"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="12dp"
+        app:strokeWidth="2dp"
+        app:strokeColor="@color/accent_blue"
+        app:cardBackgroundColor="@color/surface_dark_card"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/layoutActionControls"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.5">
+
+        <ImageView
+            android:id="@+id/ivStaticPreview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:padding="6dp"
+            android:contentDescription="Foto analizada" />
+
+        <TextView
+            android:id="@+id/tvStaticBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="10dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="3dp"
+            android:background="@drawable/bg_pill_neutral"
+            android:text="FOTO EVALUADA"
+            android:textColor="@color/accent_blue"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Top Bar: Floating Glassmorphism Header -->
     <LinearLayout
