@@ -12,10 +12,13 @@ Utiliza una red neuronal **EfficientNet-B0** exportada a **ONNX Runtime Mobile**
 
 ---
 
-## ✨ Características Principales
+## ✨ Modos de Operación y Características
 
-- ⚡ **Inferencia en Tiempo Real**: Análisis continuo de fotogramas a través del pipeline `ImageAnalysis` de CameraX con estrategia `STRATEGY_KEEP_ONLY_LATEST`.
-- 🧠 **Motor ONNX Runtime**: Ejecución ultrarrápida del modelo `effnet_b0_tl.onnx` optimizado para dispositivos móviles.
+- 🎥 **Modo Cámara en Vivo (Live Stream)**: Análisis continuo en tiempo real de fotogramas a través de CameraX (`ImageAnalysis`) con respuesta instantánea (~30–45 ms).
+- 📸 **Modo Tomar Foto (Snapshot)**: Botón disparador central que congela el fotograma actual en alta calidad y muestra el dictamen detallado de esa captura.
+- 🖼️ **Modo Cargar de Galería (Photo Picker)**: Permite seleccionar cualquier imagen almacenada en el dispositivo, con corrección automática de orientación EXIF y clasificación inmediata con el modelo ONNX.
+- 🔄 **Transición Fluida entre Modos**: Botón *"Volver a Vivo"* para retomar el escaneo continuo en cualquier momento.
+- 🧠 **Motor ONNX Runtime**: Ejecución optimizada del modelo `effnet_b0_tl.onnx` en el dispositivo (*on-device AI*).
 - 📐 **Preprocesamiento Idéntico al Entrenamiento (Letterbox)**:
   - Redimensionamiento proporcional a `224x224` preservando la relación de aspecto sin deformaciones.
   - Relleno de bordes con la **mediana del color de los extremos**.

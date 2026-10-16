@@ -9,11 +9,24 @@
     android:background="@color/black"
     tools:context=".MainActivity">
 
-    <!-- Camera Preview (Full Screen) -->
+    <!-- Camera Preview (Full Screen Live Camera) -->
     <androidx.camera.view.PreviewView
         android:id="@+id/vista"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Static Image Preview (Shown when a photo is taken or picked from gallery) -->
+    <ImageView
+        android:id="@+id/ivStaticPreview"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:scaleType="centerCrop"
+        android:visibility="gone"
+        android:contentDescription="Foto analizada"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -52,22 +65,25 @@
             android:textSize="17sp"
             android:textStyle="bold" />
 
+        <!-- Mode Indicator Badge -->
         <TextView
+            android:id="@+id/tvModeBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="3dp"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp"
             android:background="@drawable/bg_pill_neutral"
-            android:text="EfficientNet"
-            android:textColor="@color/accent_blue"
+            android:text="EN VIVO"
+            android:textColor="@color/fresh_green"
             android:textSize="11sp"
             android:textStyle="bold" />
 
+        <!-- Flash / Torch Toggle -->
         <ImageButton
             android:id="@+id/btnFlash"
             android:layout_width="38dp"
             android:layout_height="38dp"
-            android:layout_marginStart="10dp"
+            android:layout_marginStart="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_flash_off"
             android:contentDescription="Linterna" />
@@ -76,21 +92,21 @@
     <!-- Center Scanner Viewfinder Box -->
     <View
         android:id="@+id/viewScannerFrame"
-        android:layout_width="250dp"
-        android:layout_height="250dp"
+        android:layout_width="240dp"
+        android:layout_height="240dp"
         android:background="@drawable/bg_scanner_reticle"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/bottomCard"
+        app:layout_constraintBottom_toTopOf="@id/layoutActionControls"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.45" />
+        app:layout_constraintVertical_bias="0.5" />
 
     <!-- Scanner Tip Badge -->
     <TextView
         android:id="@+id/tvScannerTip"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:paddingHorizontal="12dp"
         android:paddingVertical="5dp"
         android:background="@drawable/bg_top_bar"
@@ -101,14 +117,104 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Bottom Result Floating Card (Modern UI / UX) -->
+    <!-- Floating Action Controls Bar (Gallery, Capture Photo, Return to Live) -->
+    <LinearLayout
+        android:id="@+id/layoutActionControls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toTopOf="@id/bottomCard"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Button: Open Gallery -->
+        <LinearLayout
+            android:id="@+id/btnGallery"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:paddingHorizontal="14dp"
+            android:background="@drawable/bg_action_pill"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_gallery"
+                android:contentDescription="Galería" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="Galería"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Button: Take Photo (Shutter) -->
+        <FrameLayout
+            android:id="@+id/btnCapturePhoto"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginHorizontal="16dp"
+            android:background="@drawable/bg_shutter_button"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_camera"
+                app:tint="@color/black"
+                android:contentDescription="Tomar foto" />
+        </FrameLayout>
+
+        <!-- Button: Return to Live Camera (or Active indicator) -->
+        <LinearLayout
+            android:id="@+id/btnLiveMode"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:paddingHorizontal="14dp"
+            android:background="@drawable/bg_action_pill"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/ivLiveIcon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_live"
+                android:contentDescription="En vivo" />
+
+            <TextView
+                android:id="@+id/tvLiveButtonText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="En Vivo"
+                android:textColor="@color/fresh_green"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Bottom Result Floating Card -->
     <LinearLayout
         android:id="@+id/bottomCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="14dp"
-        android:layout_marginBottom="20dp"
-        android:padding="18dp"
+        android:layout_marginBottom="16dp"
+        android:padding="16dp"
         android:background="@drawable/bg_card_surface"
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -129,7 +235,7 @@
                 android:layout_weight="1"
                 android:text="Escaneando..."
                 android:textColor="@color/text_primary"
-                android:textSize="22sp"
+                android:textSize="21sp"
                 android:textStyle="bold" />
 
             <!-- Fresh / Rotten Badge Pill -->
@@ -147,7 +253,7 @@
                     android:id="@+id/ivStatusIcon"
                     android:layout_width="15dp"
                     android:layout_height="15dp"
-                    android:src="@drawable/ic_leaf"
+                    android:src="@drawable/ic_sparkles"
                     android:contentDescription="Status Icon" />
 
                 <TextView
@@ -167,15 +273,15 @@
             android:id="@+id/tvConfidence"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Apunta la cámara hacia una fruta"
+            android:layout_marginTop="3dp"
+            android:text="Apunta la cámara o toma/carga una foto para clasificar"
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:layout_marginVertical="14dp"
+            android:layout_marginVertical="12dp"
             android:background="@color/surface_border" />
 
         <!-- Top 3 Probability Breakdown -->
@@ -198,7 +304,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -237,7 +343,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="5dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -275,7 +381,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="5dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -314,7 +420,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 

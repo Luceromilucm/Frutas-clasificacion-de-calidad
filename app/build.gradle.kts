@@ -55,4 +55,7 @@ dependencies {
 
     // ONNX Runtime
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+
+    // ExifInterface for gallery photo orientation
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }

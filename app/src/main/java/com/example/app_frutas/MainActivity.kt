@@ -3,9 +3,15 @@ package com.example.app_frutas
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.graphics.Matrix
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -22,16 +28,30 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.exifinterface.media.ExifInterface
+import java.io.InputStream
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
+    private enum class AppMode { LIVE, STATIC }
+
     private lateinit var clasificador: Clasificador
     private lateinit var vista: PreviewView
+    private lateinit var ivStaticPreview: ImageView
 
     // UI Elements - Header & Scanner
     private lateinit var btnFlash: ImageButton
+    private lateinit var tvModeBadge: TextView
     private lateinit var viewScannerFrame: View
+    private lateinit var tvScannerTip: TextView
+
+    // Action Controls
+    private lateinit var btnGallery: LinearLayout
+    private lateinit var btnCapturePhoto: FrameLayout
+    private lateinit var btnLiveMode: LinearLayout
+    private lateinit var ivLiveIcon: ImageView
+    private lateinit var tvLiveButtonText: TextView
 
     // UI Elements - Bottom Card
     private lateinit var tvFruitName: TextView
@@ -54,20 +74,28 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressCandidate3: ProgressBar
     private lateinit var tvCandidateProb3: TextView
 
-    // Camera & Background Thread
+    // Camera & Background Execution
     private var camera: Camera? = null
     private var isTorchEnabled = false
+    private var currentMode = AppMode.LIVE
     private val hilo = Executors.newSingleThreadExecutor()
 
+    // Permission launcher
     private val pedirCamara =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
             if (ok) {
                 iniciarCamara()
             } else {
                 tvFruitName.text = "Sin acceso a cámara"
-                tvConfidence.text = "Concede permisos de cámara en los ajustes para escanear."
+                tvConfidence.text = "Concede permisos o usa 'Galería' para clasificar fotos."
                 Toast.makeText(this, "Permiso de cámara denegado", Toast.LENGTH_LONG).show()
             }
+        }
+
+    // Gallery Picker launcher
+    private val seleccionarFoto =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let { procesarFotoDeGaleria(it) }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,8 +115,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun initViews() {
         vista = findViewById(R.id.vista)
+        ivStaticPreview = findViewById(R.id.ivStaticPreview)
         btnFlash = findViewById(R.id.btnFlash)
+        tvModeBadge = findViewById(R.id.tvModeBadge)
         viewScannerFrame = findViewById(R.id.viewScannerFrame)
+        tvScannerTip = findViewById(R.id.tvScannerTip)
+
+        btnGallery = findViewById(R.id.btnGallery)
+        btnCapturePhoto = findViewById(R.id.btnCapturePhoto)
+        btnLiveMode = findViewById(R.id.btnLiveMode)
+        ivLiveIcon = findViewById(R.id.ivLiveIcon)
+        tvLiveButtonText = findViewById(R.id.tvLiveButtonText)
 
         tvFruitName = findViewById(R.id.tvFruitName)
         badgeStatus = findViewById(R.id.badgeStatus)
@@ -109,9 +146,10 @@ class MainActivity : AppCompatActivity() {
         progressCandidate3 = findViewById(R.id.progressCandidate3)
         tvCandidateProb3 = findViewById(R.id.tvCandidateProb3)
 
-        btnFlash.setOnClickListener {
-            toggleTorch()
-        }
+        btnFlash.setOnClickListener { toggleTorch() }
+        btnGallery.setOnClickListener { seleccionarFoto.launch("image/*") }
+        btnCapturePhoto.setOnClickListener { capturarFotoActual() }
+        btnLiveMode.setOnClickListener { activarModoEnVivo() }
     }
 
     private fun toggleTorch() {
@@ -139,7 +177,13 @@ class MainActivity : AppCompatActivity() {
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build()
 
-            analisis.setAnalyzer(hilo) { img -> analizar(img) }
+            analisis.setAnalyzer(hilo) { img ->
+                if (currentMode == AppMode.LIVE) {
+                    analizarFrameEnVivo(img)
+                } else {
+                    img.close()
+                }
+            }
 
             proveedor.unbindAll()
             camera = proveedor.bindToLifecycle(
@@ -151,7 +195,7 @@ class MainActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    private fun analizar(img: ImageProxy) {
+    private fun analizarFrameEnVivo(img: ImageProxy) {
         val foto = img.toBitmap().rotar(img.imageInfo.rotationDegrees)
         img.close()
 
@@ -160,28 +204,147 @@ class MainActivity : AppCompatActivity() {
         val ms = System.currentTimeMillis() - t0
 
         runOnUiThread {
-            actualizarUI(p, ms)
+            if (currentMode == AppMode.LIVE) {
+                actualizarUI(p, ms, esModoFoto = false)
+            }
         }
     }
 
-    private fun actualizarUI(p: Prediccion, ms: Long) {
+    // Capture the current frame as a static snapshot
+    private fun capturarFotoActual() {
+        val bitmap = vista.bitmap
+        if (bitmap != null) {
+            cambiarAModoEstatico(bitmap, "Foto Capturada")
+        } else {
+            Toast.makeText(this, "Cámara no lista aún", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Process image picked from Gallery
+    private fun procesarFotoDeGaleria(uri: Uri) {
+        try {
+            val bitmapOriginal = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val source = ImageDecoder.createSource(contentResolver, uri)
+                ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                    decoder.isMutableRequired = true
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                MediaStore.Images.Media.getBitmap(contentResolver, uri)
+            }
+
+            // Adjust orientation if EXIF metadata contains rotation
+            val bitmapRotado = corregirRotacionExif(uri, bitmapOriginal)
+            cambiarAModoEstatico(bitmapRotado, "Foto de Galería")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Error al cargar la imagen seleccionada", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun corregirRotacionExif(uri: Uri, bitmap: Bitmap): Bitmap {
+        return try {
+            val inputStream: InputStream? = contentResolver.openInputStream(uri)
+            if (inputStream != null) {
+                val exif = ExifInterface(inputStream)
+                val orientacion = exif.getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+                )
+                inputStream.close()
+                val rotacion = when (orientacion) {
+                    ExifInterface.ORIENTATION_ROTATE_90 -> 90
+                    ExifInterface.ORIENTATION_ROTATE_180 -> 180
+                    ExifInterface.ORIENTATION_ROTATE_270 -> 270
+                    else -> 0
+                }
+                bitmap.rotar(rotacion)
+            } else {
+                bitmap
+            }
+        } catch (e: Exception) {
+            bitmap
+        }
+    }
+
+    private fun cambiarAModoEstatico(bitmap: Bitmap, origen: String) {
+        currentMode = AppMode.STATIC
+
+        // UI transitions
+        ivStaticPreview.setImageBitmap(bitmap)
+        ivStaticPreview.visibility = View.VISIBLE
+        viewScannerFrame.visibility = View.GONE
+        tvScannerTip.visibility = View.GONE
+
+        tvModeBadge.text = "FOTO FIJA"
+        tvModeBadge.setTextColor(ContextCompat.getColor(this, R.color.accent_blue))
+
+        tvLiveButtonText.text = "Volver a Vivo"
+        tvLiveButtonText.setTextColor(ContextCompat.getColor(this, R.color.accent_amber))
+        ivLiveIcon.setImageResource(R.drawable.ic_refresh)
+
+        // Classify on background thread
+        hilo.execute {
+            val t0 = System.currentTimeMillis()
+            val p = clasificador.clasificar(bitmap)
+            val ms = System.currentTimeMillis() - t0
+
+            runOnUiThread {
+                if (currentMode == AppMode.STATIC) {
+                    actualizarUI(p, ms, esModoFoto = true, origenFoto = origen)
+                }
+            }
+        }
+    }
+
+    private fun activarModoEnVivo() {
+        if (currentMode == AppMode.LIVE) {
+            Toast.makeText(this, "Ya estás en modo de cámara en vivo", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        currentMode = AppMode.LIVE
+        ivStaticPreview.visibility = View.GONE
+        viewScannerFrame.visibility = View.VISIBLE
+        tvScannerTip.visibility = View.VISIBLE
+
+        tvModeBadge.text = "EN VIVO"
+        tvModeBadge.setTextColor(ContextCompat.getColor(this, R.color.fresh_green))
+
+        tvLiveButtonText.text = "En Vivo"
+        tvLiveButtonText.setTextColor(ContextCompat.getColor(this, R.color.fresh_green))
+        ivLiveIcon.setImageResource(R.drawable.ic_live)
+    }
+
+    private fun actualizarUI(
+        p: Prediccion,
+        ms: Long,
+        esModoFoto: Boolean,
+        origenFoto: String = ""
+    ) {
         tvLatency.text = "⚡ ${ms} ms"
 
-        val esConfiable = p.prob >= 0.60f
+        val esConfiable = p.prob >= 0.50f
         val (fruta, estado, esFresca) = parsearClase(p.clase)
 
         if (!esConfiable) {
-            tvFruitName.text = "Escaneando..."
-            tvConfidence.text = "Centra una fruta en el recuadro para clasificarla"
+            tvFruitName.text = if (esModoFoto) "Fruta no identificada" else "Escaneando..."
+            tvConfidence.text = if (esModoFoto) {
+                "$origenFoto · Intenta con una imagen más nítida de la fruta"
+            } else {
+                "Centra una fruta en el recuadro para clasificarla"
+            }
 
             badgeStatus.setBackgroundResource(R.drawable.bg_pill_neutral)
             ivStatusIcon.setImageResource(R.drawable.ic_sparkles)
-            tvStatusText.text = "EN BUSCA"
+            tvStatusText.text = "EN DUDA"
             tvStatusText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
         } else {
             tvFruitName.text = fruta
             val pct = "%.1f".format(p.prob * 100)
-            tvConfidence.text = "Certeza: $pct% · Estado detectado: $estado"
+            val prefijo = if (esModoFoto) "[$origenFoto] " else ""
+            tvConfidence.text = "${prefijo}Certeza: $pct% · Estado: $estado"
 
             if (esFresca) {
                 badgeStatus.setBackgroundResource(R.drawable.bg_pill_fresh)
